@@ -1,4 +1,5 @@
 import io
+from contextlib import asynccontextmanager
 import torch
 import numpy as np
 import soundfile as sf
@@ -7,11 +8,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from qwen_tts import Qwen3TTSModel
 
-app = FastAPI(title="Qwen3-TTS OpenAI-Compatible API Server")
 model = None
 
-@app.on_event("startup")
-def load_model():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global model
     print("Initializing Qwen3-TTS model weights on AMD GPU...")
     model = Qwen3TTSModel.from_pretrained(
@@ -20,6 +20,11 @@ def load_model():
         dtype=torch.bfloat16
     )
     print("Model ready to serve requests.")
+    yield
+    # Shutdown: release model resources
+    model = None
+
+app = FastAPI(title="Qwen3-TTS OpenAI-Compatible API Server", lifespan=lifespan)
 
 class TTSRequest(BaseModel):
     input: str
