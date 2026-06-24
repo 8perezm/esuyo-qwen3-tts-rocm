@@ -1,0 +1,43 @@
+services:
+  qwen-tts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qwen3-tts-rocm:latest
+    container_name: qwen3_tts_app
+
+    # Required for AMD ROCm hardware acceleration
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+
+    # Adds the container to the host's video group to access the GPU render nodes
+    group_add:
+      - video
+
+    # Solves potential shared memory issues during model inferencing
+    ipc: host
+    shm_size: "8gb"
+
+    # Mounts current directory code into the container for easy development
+    volumes:
+      - .:/workspace
+      # Optional: Persist Hugging Face model downloads so they don't re-download on restart
+      - hf_cache:/root/.cache/huggingface
+
+    # Ports for web UIs (like Gradio) or API servers (FastAPI)
+    ports:
+      - "7860:7860" # Gradio UI
+      - "8000:8000" # FastAPI / Uvicorn Server
+
+    # Keeps the container running interactively so you can execute scripts
+    tty: true
+    stdin_open: true
+
+    # Change this command if you want to automatically start a specific server script
+    #    command: /bin/bash
+
+    command: python3 app/server.py
+
+volumes:
+  hf_cache:
