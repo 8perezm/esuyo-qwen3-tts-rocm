@@ -1,4 +1,5 @@
 import io
+import os
 from contextlib import asynccontextmanager
 import torch
 import numpy as np
@@ -8,18 +9,22 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from qwen_tts import Qwen3TTSModel
 
+# Configurable via env vars so the same image can serve either model size.
+MODEL_ID = os.environ.get("MODEL_ID", "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign")
+PORT = int(os.environ.get("PORT", "8000"))
+
 model = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model
-    print("Initializing Qwen3-TTS model weights on AMD GPU...")
+    print(f"Initializing Qwen3-TTS model on AMD GPU: {MODEL_ID}")
     model = Qwen3TTSModel.from_pretrained(
-        "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        MODEL_ID,
         device_map="cuda:0",
         dtype=torch.bfloat16
     )
-    print("Model ready to serve requests.")
+    print(f"Model ready to serve requests on port {PORT}.")
     yield
     # Shutdown: release model resources
     model = None
@@ -73,4 +78,4 @@ async def text_to_speech(payload: TTSRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

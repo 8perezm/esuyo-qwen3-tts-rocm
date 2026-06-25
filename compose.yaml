@@ -37,6 +37,44 @@ services:
     # Change this command if you want to automatically start a specific server script
     #    command: /bin/bash
 
+    environment:
+      - MODEL_ID=Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+      - PORT=8000
+
+    command: python3 app/server.py
+
+  qwen-tts-06b:
+    # Reuses the same image built by the `qwen-tts` service above (qwen3-tts-rocm:latest).
+    # Loads the smaller 0.6B VoiceDesign model and serves it on a different port.
+    image: qwen3-tts-rocm:latest
+    container_name: qwen3_tts_app_06b
+
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+
+    group_add:
+      - video
+
+    ipc: host
+    shm_size: "8gb"
+
+    # Shares the HF cache volume so the 0.6B model is downloaded only once
+    # and reuses the 1.7B's cached files if/when they overlap.
+    volumes:
+      - .:/workspace
+      - hf_cache:/root/.cache/huggingface
+
+    ports:
+      - "8001:8001" # FastAPI / Uvicorn Server (0.6B model)
+
+    tty: true
+    stdin_open: true
+
+    environment:
+      - MODEL_ID=Qwen/Qwen3-TTS-12Hz-0.6B-VoiceDesign
+      - PORT=8000
+
     command: python3 app/server.py
 
 volumes:
