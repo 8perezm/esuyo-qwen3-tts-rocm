@@ -51,19 +51,19 @@ async def lifespan(app: FastAPI):
         device_map="cuda:0",
         dtype=torch.bfloat16
     )
-    # NEW: wrap the inner nn.Module with torch.compile.
-    # Falls back gracefully if the wrapper itself isn't compileable.
-    try:
-        inner = getattr(model, "model", model)
-        inner = getattr(inner, "model", inner)   # unwrap one more layer if present
-        inner = torch.compile(inner, mode="reduce-overhead", fullgraph=False)
-        print("torch.compile enabled (mode=reduce-overhead)")
-    except Exception as e:
-        print(f"torch.compile skipped: {e}")
+    # Compile the actual nn.Module (not the wrapper).
+    # The wrapper (Qwen3TTSModel) is a thin Python class with per-token
+    # logic; compiling it does nothing. m.model is the real transformer.
+    model.model = torch.compile(
+        model.model,
+        mode="default",         # was: reduce-overhead. Default works with variable shapes.
+        fullgraph=False,        # qwen-tts has dynamic shapes; fullgraph=True would fail.
+        dynamic=True,           # tells compile to specialize for changing seq lengths
+    )
+    print("torch.compile applied to Qwen3TTSForConditionalGeneration (mode=default, dynamic=True)")
 
     print(f"Model ready (variant={MODEL_VARIANT}) on port {PORT}.")
     yield
-    # Shutdown: release model resources
     model = None
 
 app = FastAPI(title="Qwen3-TTS OpenAI-Compatible API Server", lifespan=lifespan)
