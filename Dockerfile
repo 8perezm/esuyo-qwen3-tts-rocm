@@ -6,6 +6,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# ROCm runtime tuning for gfx1201 (e.g. R9700 / RX 9000 series):
+# hipBLASLt often has no tuned GEMM kernels for new gfx1201 ASICs and falls
+# back to a slow generic path. Forcing rocBLAS picks up its tuned kernels
+# instead. Confirmed fix for the same TTS-docker slowness on an R9700.
+ENV ROCBLAS_USE_HIPBLASLT=0
+
 # Install system dependencies needed for audio processing and model compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \

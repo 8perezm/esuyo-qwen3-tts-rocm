@@ -51,16 +51,16 @@ async def lifespan(app: FastAPI):
         device_map="cuda:0",
         dtype=torch.bfloat16
     )
-    # Compile the actual nn.Module (not the wrapper).
-    # The wrapper (Qwen3TTSModel) is a thin Python class with per-token
-    # logic; compiling it does nothing. m.model is the real transformer.
-    model.model = torch.compile(
-        model.model,
-        mode="default",         # was: reduce-overhead. Default works with variable shapes.
-        fullgraph=False,        # qwen-tts has dynamic shapes; fullgraph=True would fail.
-        dynamic=True,           # tells compile to specialize for changing seq lengths
-    )
-    print("torch.compile applied to Qwen3TTSForConditionalGeneration (mode=default, dynamic=True)")
+    # torch.compile disabled: on ROCm, dynamic=True on TTS makes inductor/Triton
+    # keep recompiling per shape and burns CPU while the GPU spins. Run eager
+    # for now and compare. To re-enable, uncomment the block below.
+    # model.model = torch.compile(
+    #     model.model,
+    #     mode="default",
+    #     fullgraph=False,
+    #     dynamic=True,
+    # )
+    print("torch.compile DISABLED — running eager (ROCm/indector recompile pressure).")
 
     print(f"Model ready (variant={MODEL_VARIANT}) on port {PORT}.")
     yield
